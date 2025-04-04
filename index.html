@@ -118,7 +118,7 @@
         if (item.type === "file") {
           const name = item.name.toLowerCase();
           const extension = name.split('.').pop();
-          if (["png", "webp"].includes(extension)) {
+          if (["png", "webp", "jp2"].includes(extension)) {
             const format = extension;
             renderThumbnail(item, format);
             state.images.push(item);
