@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gallery with Image Previews</title>
+  <title>Recursive Render Gallery (Complete)</title>
   <style>
     body {
       font-family: Georgia, serif;
@@ -32,6 +32,15 @@
     .gallery-item img:hover {
       transform: scale(1.05);
     }
+    .section {
+      margin-bottom: 3em;
+    }
+    pre {
+      background: #eee;
+      padding: 1em;
+      font-size: 0.9em;
+      overflow-x: auto;
+    }
 
     /* Modal styles */
     .modal {
@@ -42,18 +51,16 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background-color: rgba(0,0,0,0.8);
+      background-color: rgba(0, 0, 0, 0.8);
       justify-content: center;
       align-items: center;
     }
-
     .modal-content {
       max-width: 90%;
       max-height: 90%;
       border-radius: 8px;
       box-shadow: 0 0 10px #000;
     }
-
     .modal-close {
       position: fixed;
       top: 20px;
@@ -62,17 +69,10 @@
       color: white;
       cursor: pointer;
     }
-
-    pre {
-      background: #eee;
-      padding: 1em;
-      font-size: 0.9em;
-      overflow-x: auto;
-    }
   </style>
 </head>
 <body>
-  <h1>Recursive Render Gallery (with Previews)</h1>
+  <h1>Recursive Render Gallery</h1>
 
   <div class="section">
     <h2>PNG Files</h2>
@@ -86,9 +86,9 @@
 
   <pre id="debugOutput">Loading...</pre>
 
-  <!-- Modal Element -->
+  <!-- Modal -->
   <div class="modal" id="imageModal">
-    <span class="modal-close" id="modalClose">&times;</span>
+    <span class="modal-close" id="modalClose">🐸</span>
     <img class="modal-content" id="modalImage" src="" alt="">
   </div>
 
@@ -97,10 +97,13 @@
     const rootFolder = "renders";
     const baseApiUrl = `https://api.github.com/repos/${repo}/contents`;
 
-    window.renderedMedia = {
-      png: [],
-      webp: []
+    const state = {
+      images: [],
+      currentIndex: null
     };
+
+    const modal = document.getElementById("imageModal");
+    const modalImg = document.getElementById("modalImage");
 
     async function fetchRecursive(path) {
       const response = await fetch(`${baseApiUrl}/${path}`);
@@ -114,10 +117,11 @@
       for (const item of items) {
         if (item.type === "file") {
           const name = item.name.toLowerCase();
-          if (name.endsWith(".png")) {
-            window.renderedMedia.png.push(item);
-          } else if (name.endsWith(".webp")) {
-            window.renderedMedia.webp.push(item);
+          const extension = name.split('.').pop();
+          if (["png", "webp"].includes(extension)) {
+            const format = extension;
+            renderThumbnail(item, format);
+            state.images.push(item);
           }
         } else if (item.type === "dir") {
           await fetchRecursive(item.path);
@@ -125,55 +129,72 @@
       }
     }
 
-    async function startGallery() {
-      await fetchRecursive(rootFolder);
+    function renderThumbnail(file, format) {
+      const containerId = format === "png" ? "pngGallery" : "webpGallery";
+      const container = document.getElementById(containerId);
 
-      const { png, webp } = window.renderedMedia;
-      document.getElementById("debugOutput").textContent =
-        `🧾 Found:\n${png.length} PNGs\n${webp.length} WEBPs`;
+      const div = document.createElement("div");
+      div.className = "gallery-item";
 
-      const renderSection = (files, containerId) => {
-        const container = document.getElementById(containerId);
-        files.forEach(file => {
-          const div = document.createElement("div");
-          div.className = "gallery-item";
+      const img = document.createElement("img");
+      img.src = file.download_url;
+      img.alt = file.name;
+      img.loading = "lazy";
+      img.addEventListener("click", () => openModal(file.download_url));
 
-          const img = document.createElement("img");
-          img.src = file.download_url;
-          img.alt = file.name;
-          img.addEventListener("click", () => openModal(file.download_url, file.name));
-
-          div.appendChild(img);
-          container.appendChild(div);
-        });
-      };
-
-      renderSection(png, "pngGallery");
-      renderSection(webp, "webpGallery");
+      div.appendChild(img);
+      container.appendChild(div);
     }
 
-    function openModal(src, alt) {
-      const modal = document.getElementById("imageModal");
-      const modalImg = document.getElementById("modalImage");
+    function openModal(src) {
+      const index = state.images.findIndex(f => f.download_url === src);
+      if (index !== -1) {
+        state.currentIndex = index;
+        showModalAt(index);
+      }
+    }
 
+    function showModalAt(index) {
+      const file = state.images[index];
+      modalImg.src = file.download_url;
+      modalImg.alt = file.name;
       modal.style.display = "flex";
-      modalImg.src = src;
-      modalImg.alt = alt;
     }
 
-    document.getElementById("modalClose").addEventListener("click", () => {
-      document.getElementById("imageModal").style.display = "none";
+    function closeModal() {
+      modal.style.display = "none";
+      state.currentIndex = null;
+    }
+
+    document.getElementById("modalClose").addEventListener("click", closeModal);
+    window.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
     });
 
-    window.addEventListener("click", (event) => {
-      if (event.target.id === "imageModal") {
-        document.getElementById("imageModal").style.display = "none";
+    // ⌨️ Keyboard navigation
+    window.addEventListener("keydown", (e) => {
+      if (state.currentIndex === null) return;
+
+      if (e.key === "Escape") {
+        closeModal();
+      } else if (e.key === "ArrowRight") {
+        state.currentIndex = (state.currentIndex + 1) % state.images.length;
+        showModalAt(state.currentIndex);
+      } else if (e.key === "ArrowLeft") {
+        state.currentIndex = (state.currentIndex - 1 + state.images.length) % state.images.length;
+        showModalAt(state.currentIndex);
       }
     });
 
-    startGallery().catch(err => {
-      document.getElementById("debugOutput").textContent = `⚠️ Error: ${err.message}`;
-    });
+    // Begin loading immediately
+    fetchRecursive(rootFolder)
+      .then(() => {
+        document.getElementById("debugOutput").textContent =
+          `✅ Loaded ${state.images.length} image(s). Use ← → Esc for modal navigation.`;
+      })
+      .catch(err => {
+        document.getElementById("debugOutput").textContent = `⚠️ Error: ${err.message}`;
+      });
   </script>
 </body>
 </html>
