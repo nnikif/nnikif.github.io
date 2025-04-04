@@ -4,10 +4,36 @@
   <meta charset="UTF-8">
   <title>Gallery of Rendered Thought</title>
   <style>
-    body { font-family: 'Georgia', serif; background: #f8f5f0; text-align: center; }
-    .gallery { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 2em; }
-    .gallery img { max-width: 200px; border: 1px solid #aaa; border-radius: 8px; background: #fff; box-shadow: 2px 2px 6px #ccc; }
-    h1 { font-size: 2em; margin-top: 1em; }
+    body {
+      font-family: 'Georgia', serif;
+      background: #f8f5f0;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      font-size: 2em;
+      margin-top: 1em;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      padding: 2em;
+    }
+    .gallery img {
+      max-width: 200px;
+      max-height: 200px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 2px 2px 6px #ccc;
+      transition: transform 0.2s;
+    }
+    .gallery img:hover {
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body>
@@ -20,20 +46,27 @@
     const apiUrl = `https://api.github.com/repos/${repo}/contents/${folder}`;
 
     fetch(apiUrl)
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Failed to fetch images. Is the repository public?");
+        }
+        return response.json();
+      })
       .then(files => {
         const gallery = document.getElementById('gallery');
-        files.forEach(file => {
-          if (file.name.endsWith('.png')) {
+        files
+          .filter(file => file.name.toLowerCase().endsWith('.png'))
+          .forEach(file => {
             const img = document.createElement('img');
-            img.src = file.download_url+'.png';
-            img.alt = file.name;
+            img.src = file.download_url;
+            img.alt = file.name.replace('.png', '');
             gallery.appendChild(img);
-          }
-        });
+          });
       })
       .catch(error => {
-        console.error("Something went awry in the summoning:", error);
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = `<p style="color: darkred;">⚠️ Could not load gallery: ${error.message}</p>`;
+        console.error("Summoning error:", error);
       });
   </script>
 </body>
