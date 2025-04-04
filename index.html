@@ -2,157 +2,178 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Render Gallery Debug</title>
+  <title>Gallery with Image Previews</title>
   <style>
     body {
-      font-family: 'Georgia', serif;
-      background: #f4f4f0;
+      font-family: Georgia, serif;
+      background: #f8f5f0;
       padding: 1em;
+    }
+    h1, h2 {
+      text-align: center;
     }
     .gallery {
       display: flex;
       flex-wrap: wrap;
       gap: 1em;
       justify-content: center;
-      margin-top: 2em;
-    }
-    .gallery img {
-      max-width: 200px;
-      border: 1px solid #999;
-      border-radius: 8px;
-      box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    #loadBtn {
-      padding: 0.5em 1em;
-      font-family: inherit;
-      background: #ddd;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-
-<h1>Debug Gallery Loader</h1>
-<button id="loadBtn">Render Images</button>
-<pre id="debugOutput"></pre>
-<div class="gallery" id="gallery"></div>
-
-<script>
-  const repo = "nnikif/prompts";
-  const folder = "renders";
-  const apiUrl = `https://api.github.com/repos/${repo}/contents/${folder}`;
-
-  // Global storage of fetched data
-  window.renderedImages = [];
-
-  // Fetch JSON data once
-  fetch(apiUrl)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("Failed to fetch image data");
-      }
-      return response.json();
-    })
-    .then(data => {
-      // Store the relevant image data
-      window.renderedImages = data.filter(file => file.name.toLowerCase().endsWith('.png'));
-
-      // Show JSON in the debug panel
-      document.getElementById('debugOutput').textContent = JSON.stringify(window.renderedImages, null, 2);
-    })
-    .catch(error => {
-      document.getElementById('debugOutput').textContent = `⚠️ Error: ${error.message}`;
-    });
-
-  // Manual rendering on button click
-  document.getElementById('loadBtn').addEventListener('click', () => {
-    const gallery = document.getElementById('gallery');
-    gallery.innerHTML = ''; // Clear previous images
-
-    window.renderedImages.forEach(file => {
-      const img = document.createElement('img');
-      img.src = file.download_url;
-      img.alt = file.name;
-      gallery.appendChild(img);
-    });
-  });
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Gallery of Rendered Thought</title>
-  <style>
-    body {
-      font-family: 'Georgia', serif;
-      background: #f8f5f0;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-    h1 {
-      font-size: 2em;
       margin-top: 1em;
     }
-    .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      padding: 2em;
-    }
-    .gallery img {
-      max-width: 200px;
-      max-height: 200px;
+    .gallery-item img {
+      width: 160px;
+      height: auto;
+      object-fit: cover;
       border: 1px solid #aaa;
       border-radius: 8px;
-      background: #fff;
       box-shadow: 2px 2px 6px #ccc;
+      cursor: pointer;
       transition: transform 0.2s;
     }
-    .gallery img:hover {
+    .gallery-item img:hover {
       transform: scale(1.05);
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #000;
+    }
+
+    .modal-close {
+      position: fixed;
+      top: 20px;
+      right: 30px;
+      font-size: 2em;
+      color: white;
+      cursor: pointer;
+    }
+
+    pre {
+      background: #eee;
+      padding: 1em;
+      font-size: 0.9em;
+      overflow-x: auto;
     }
   </style>
 </head>
 <body>
-  <h1>Gallery of Rendered Thought</h1>
-  <div class="gallery" id="gallery"></div>
+  <h1>Recursive Render Gallery (with Previews)</h1>
+
+  <div class="section">
+    <h2>PNG Files</h2>
+    <div class="gallery" id="pngGallery"></div>
+  </div>
+
+  <div class="section">
+    <h2>WEBP Files</h2>
+    <div class="gallery" id="webpGallery"></div>
+  </div>
+
+  <pre id="debugOutput">Loading...</pre>
+
+  <!-- Modal Element -->
+  <div class="modal" id="imageModal">
+    <span class="modal-close" id="modalClose">&times;</span>
+    <img class="modal-content" id="modalImage" src="" alt="">
+  </div>
 
   <script>
     const repo = "nnikif/prompts";
-    const folder = "renders";
-    const apiUrl = `https://api.github.com/repos/${repo}/contents/${folder}`;
+    const rootFolder = "renders";
+    const baseApiUrl = `https://api.github.com/repos/${repo}/contents`;
 
-    fetch(apiUrl)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("Failed to fetch images. Is the repository public?");
+    window.renderedMedia = {
+      png: [],
+      webp: []
+    };
+
+    async function fetchRecursive(path) {
+      const response = await fetch(`${baseApiUrl}/${path}`);
+      if (!response.ok) {
+        console.error(`Failed to fetch ${path}:`, response.status);
+        return;
+      }
+
+      const items = await response.json();
+
+      for (const item of items) {
+        if (item.type === "file") {
+          const name = item.name.toLowerCase();
+          if (name.endsWith(".png")) {
+            window.renderedMedia.png.push(item);
+          } else if (name.endsWith(".webp")) {
+            window.renderedMedia.webp.push(item);
+          }
+        } else if (item.type === "dir") {
+          await fetchRecursive(item.path);
         }
-        return response.json();
-      })
-      .then(files => {
-        const gallery = document.getElementById('gallery');
-        files
-          .filter(file => file.name.toLowerCase().endsWith('.png'))
-          .forEach(file => {
-            const img = document.createElement('img');
-            img.src = file.download_url;
-            img.alt = file.name.replace('.png', '');
-            gallery.appendChild(img);
-          });
-      })
-      .catch(error => {
-        const gallery = document.getElementById('gallery');
-        gallery.innerHTML = `<p style="color: darkred;">⚠️ Could not load gallery: ${error.message}</p>`;
-        console.error("Summoning error:", error);
-      });
-    console.log(gallery);
+      }
+    }
+
+    async function startGallery() {
+      await fetchRecursive(rootFolder);
+
+      const { png, webp } = window.renderedMedia;
+      document.getElementById("debugOutput").textContent =
+        `🧾 Found:\n${png.length} PNGs\n${webp.length} WEBPs`;
+
+      const renderSection = (files, containerId) => {
+        const container = document.getElementById(containerId);
+        files.forEach(file => {
+          const div = document.createElement("div");
+          div.className = "gallery-item";
+
+          const img = document.createElement("img");
+          img.src = file.download_url;
+          img.alt = file.name;
+          img.addEventListener("click", () => openModal(file.download_url, file.name));
+
+          div.appendChild(img);
+          container.appendChild(div);
+        });
+      };
+
+      renderSection(png, "pngGallery");
+      renderSection(webp, "webpGallery");
+    }
+
+    function openModal(src, alt) {
+      const modal = document.getElementById("imageModal");
+      const modalImg = document.getElementById("modalImage");
+
+      modal.style.display = "flex";
+      modalImg.src = src;
+      modalImg.alt = alt;
+    }
+
+    document.getElementById("modalClose").addEventListener("click", () => {
+      document.getElementById("imageModal").style.display = "none";
+    });
+
+    window.addEventListener("click", (event) => {
+      if (event.target.id === "imageModal") {
+        document.getElementById("imageModal").style.display = "none";
+      }
+    });
+
+    startGallery().catch(err => {
+      document.getElementById("debugOutput").textContent = `⚠️ Error: ${err.message}`;
+    });
   </script>
 </body>
 </html>
