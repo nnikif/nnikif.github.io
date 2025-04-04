@@ -143,7 +143,7 @@
 
       for (const item of items) {
         const ext = item.name.toLowerCase().split(".").pop();
-        if (item.type === "file" && ["png", "webp", ".jpg"].includes(ext)) {
+        if (item.type === "file" && ["png", "webp", "jpg"].includes(ext)) {
           renderThumbnail(item, ext);
           state.images.push(item);
         } else if (item.type === "dir") {
