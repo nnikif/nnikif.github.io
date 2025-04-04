@@ -84,6 +84,11 @@
     <div class="gallery" id="webpGallery"></div>
   </div>
 
+  <div class="section">
+    <h2>JP2 Files</h2>
+    <div class="gallery" id="jp2Gallery"></div>
+  </div>
+  
   <pre id="debugOutput">Loading...</pre>
 
   <!-- Modal -->
@@ -130,7 +135,12 @@
     }
 
     function renderThumbnail(file, format) {
-      const containerId = format === "png" ? "pngGallery" : "webpGallery";
+      cconst containerId =
+        format === "png" ? "pngGallery" :
+        format === "webp" ? "webpGallery" :
+        format === "jp2" ? "jp2Gallery" :
+        null;
+
       const container = document.getElementById(containerId);
 
       const div = document.createElement("div");
