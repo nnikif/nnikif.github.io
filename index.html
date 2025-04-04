@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Recursive Render Gallery (Complete)</title>
+  <title>Recursive Render Gallery with GitHub Auth</title>
   <style>
     body {
       font-family: Georgia, serif;
@@ -41,8 +41,6 @@
       font-size: 0.9em;
       overflow-x: auto;
     }
-
-    /* Modal styles */
     .modal {
       display: none;
       position: fixed;
@@ -72,7 +70,10 @@
   </style>
 </head>
 <body>
-  <h1>Recursive Render Gallery</h1>
+  <h1>Recursive Render Gallery with GitHub Auth</h1>
+  <div style="text-align: center; margin: 1em;">
+    <button id="githubLogin">🔐 Sign in with GitHub</button>
+  </div>
 
   <div class="section">
     <h2>PNG Files</h2>
@@ -89,45 +90,62 @@
     <div class="gallery" id="jp2Gallery"></div>
   </div>
 
-  <pre id="debugOutput">Loading...</pre>
+  <pre id="debugOutput">Please authenticate to begin loading...</pre>
 
-  <!-- Modal -->
   <div class="modal" id="imageModal">
-    <span class="modal-close" id="modalClose">🐸</span>
+    <span class="modal-close" id="modalClose">&times;</span>
     <img class="modal-content" id="modalImage" src="" alt="">
   </div>
 
-  <script>
+  <script type="module">
+    import { createOAuthDeviceAuth } from "https://cdn.skypack.dev/@octokit/auth-oauth-device";
+
     const repo = "nnikif/prompts";
     const rootFolder = "renders";
     const baseApiUrl = `https://api.github.com/repos/${repo}/contents`;
-
-    const state = {
-      images: [],
-      currentIndex: null
-    };
-
     const modal = document.getElementById("imageModal");
     const modalImg = document.getElementById("modalImage");
+    let githubToken = "";
+    const state = { images: [], currentIndex: null };
+
+    document.getElementById("githubLogin").addEventListener("click", async () => {
+      const auth = createOAuthDeviceAuth({
+        clientType: "oauth-app",
+        clientId: "Ov23liGYiw83xIKHDQE7", // Replace this with your real OAuth client ID
+        scopes: ["public_repo"]
+      });
+
+      const authentication = await auth({
+        type: "oauth",
+        onVerification: (verification) => {
+          alert(`To authorize, visit ${verification.verification_uri} and enter code: ${verification.user_code}`);
+        }
+      });
+
+      githubToken = authentication.token;
+      document.getElementById("debugOutput").textContent = "🔓 Authenticated. Loading gallery...";
+      state.images = [];
+      clearGallery();
+      await fetchRecursive(rootFolder);
+      document.getElementById("debugOutput").textContent = `✅ Loaded ${state.images.length} image(s).`;
+    });
+
+    function getHeaders() {
+      const headers = {};
+      if (githubToken) headers["Authorization"] = `token ${githubToken}`;
+      return { headers };
+    }
 
     async function fetchRecursive(path) {
-      const response = await fetch(`${baseApiUrl}/${path}`);
-      if (!response.ok) {
-        console.error(`Failed to fetch ${path}:`, response.status);
-        return;
-      }
-
+      const response = await fetch(`${baseApiUrl}/${path}`, getHeaders());
+      if (!response.ok) throw new Error(`Failed to fetch ${path}: ${response.statusText}`);
       const items = await response.json();
 
       for (const item of items) {
-        if (item.type === "file") {
-          const name = item.name.toLowerCase();
-          const extension = name.split('.').pop();
-          if (["png", "webp", "jp2"].includes(extension)) {
-            const format = extension;
-            renderThumbnail(item, format);
-            state.images.push(item);
-          }
+        const ext = item.name.toLowerCase().split(".").pop();
+        if (item.type === "file" && ["png", "webp", ".jpg.jp2"].includes(ext)) {
+          renderThumbnail(item, ext);
+          state.images.push(item);
         } else if (item.type === "dir") {
           await fetchRecursive(item.path);
         }
@@ -135,14 +153,8 @@
     }
 
     function renderThumbnail(file, format) {
-      const containerId =
-        format === "png" ? "pngGallery" :
-        format === "webp" ? "webpGallery" :
-        format === "jp2" ? "jp2Gallery" :
-        null;
-
+      const containerId = format === "png" ? "pngGallery" : format === "webp" ? "webpGallery" : "jp2Gallery";
       const container = document.getElementById(containerId);
-
       const div = document.createElement("div");
       div.className = "gallery-item";
 
@@ -176,35 +188,21 @@
       state.currentIndex = null;
     }
 
-    document.getElementById("modalClose").addEventListener("click", closeModal);
-    window.addEventListener("click", (e) => {
-      if (e.target === modal) closeModal();
-    });
-
-    // ⌨️ Keyboard navigation
-    window.addEventListener("keydown", (e) => {
-      if (state.currentIndex === null) return;
-
-      if (e.key === "Escape") {
-        closeModal();
-      } else if (e.key === "ArrowRight") {
-        state.currentIndex = (state.currentIndex + 1) % state.images.length;
-        showModalAt(state.currentIndex);
-      } else if (e.key === "ArrowLeft") {
-        state.currentIndex = (state.currentIndex - 1 + state.images.length) % state.images.length;
-        showModalAt(state.currentIndex);
-      }
-    });
-
-    // Begin loading immediately
-    fetchRecursive(rootFolder)
-      .then(() => {
-        document.getElementById("debugOutput").textContent =
-          `✅ Loaded ${state.images.length} image(s). Use ← → Esc for modal navigation.`;
-      })
-      .catch(err => {
-        document.getElementById("debugOutput").textContent = `⚠️ Error: ${err.message}`;
+    function clearGallery() {
+      ["pngGallery", "webpGallery", "jp2Gallery"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
       });
+    }
+
+    document.getElementById("modalClose").addEventListener("click", closeModal);
+    window.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+    window.addEventListener("keydown", e => {
+      if (state.currentIndex === null) return;
+      if (e.key === "Escape") closeModal();
+      if (e.key === "ArrowRight") showModalAt((state.currentIndex + 1) % state.images.length);
+      if (e.key === "ArrowLeft") showModalAt((state.currentIndex - 1 + state.images.length) % state.images.length);
+    });
   </script>
 </body>
 </html>
