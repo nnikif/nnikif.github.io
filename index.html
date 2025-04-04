@@ -131,9 +131,9 @@
     });
 
     function getHeaders() {
-      const headers = {};
-      if (githubToken) headers["Authorization"] = `token ${githubToken}`;
-      return { headers };
+      const headers = new Headers();
+      if (githubToken) headers.append("Authorization", `token ${githubToken}`);
+      return headers;
     }
 
     async function fetchRecursive(path) {
