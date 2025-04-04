@@ -26,7 +26,7 @@
         files.forEach(file => {
           if (file.name.endsWith('.png')) {
             const img = document.createElement('img');
-            img.src = file.download_url;
+            img.src = file.download_url+'.png';
             img.alt = file.name;
             gallery.appendChild(img);
           }
