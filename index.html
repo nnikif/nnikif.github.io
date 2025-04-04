@@ -86,8 +86,8 @@
   </div>
 
   <div class="section">
-    <h2>JP2 Files</h2>
-    <div class="gallery" id="jp2Gallery"></div>
+    <h2>JPG Files</h2>
+    <div class="gallery" id="jpgGallery"></div>
   </div>
 
   <pre id="debugOutput">Please authenticate to begin loading...</pre>
@@ -153,7 +153,7 @@
     }
 
     function renderThumbnail(file, format) {
-      const containerId = format === "png" ? "pngGallery" : format === "webp" ? "webpGallery" : "jp2Gallery";
+      const containerId = format === "png" ? "pngGallery" : format === "webp" ? "webpGallery" : "jpgGallery";
       const container = document.getElementById(containerId);
       const div = document.createElement("div");
       div.className = "gallery-item";
