@@ -143,7 +143,7 @@
 
       for (const item of items) {
         const ext = item.name.toLowerCase().split(".").pop();
-        if (item.type === "file" && ["png", "webp", ".jpg.jp2"].includes(ext)) {
+        if (item.type === "file" && ["png", "webp", ".jpg"].includes(ext)) {
           renderThumbnail(item, ext);
           state.images.push(item);
         } else if (item.type === "dir") {
@@ -189,7 +189,7 @@
     }
 
     function clearGallery() {
-      ["pngGallery", "webpGallery", "jp2Gallery"].forEach(id => {
+      ["pngGallery", "webpGallery", "jpgGallery"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = '';
       });
