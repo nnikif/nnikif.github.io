@@ -2,6 +2,90 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <title>Render Gallery Debug</title>
+  <style>
+    body {
+      font-family: 'Georgia', serif;
+      background: #f4f4f0;
+      padding: 1em;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1em;
+      justify-content: center;
+      margin-top: 2em;
+    }
+    .gallery img {
+      max-width: 200px;
+      border: 1px solid #999;
+      border-radius: 8px;
+      box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    #loadBtn {
+      padding: 0.5em 1em;
+      font-family: inherit;
+      background: #ddd;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Debug Gallery Loader</h1>
+<button id="loadBtn">Render Images</button>
+<pre id="debugOutput"></pre>
+<div class="gallery" id="gallery"></div>
+
+<script>
+  const repo = "nnikif/prompts";
+  const folder = "renders";
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${folder}`;
+
+  // Global storage of fetched data
+  window.renderedImages = [];
+
+  // Fetch JSON data once
+  fetch(apiUrl)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch image data");
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Store the relevant image data
+      window.renderedImages = data.filter(file => file.name.toLowerCase().endsWith('.png'));
+
+      // Show JSON in the debug panel
+      document.getElementById('debugOutput').textContent = JSON.stringify(window.renderedImages, null, 2);
+    })
+    .catch(error => {
+      document.getElementById('debugOutput').textContent = `⚠️ Error: ${error.message}`;
+    });
+
+  // Manual rendering on button click
+  document.getElementById('loadBtn').addEventListener('click', () => {
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = ''; // Clear previous images
+
+    window.renderedImages.forEach(file => {
+      const img = document.createElement('img');
+      img.src = file.download_url;
+      img.alt = file.name;
+      gallery.appendChild(img);
+    });
+  });
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
   <title>Gallery of Rendered Thought</title>
   <style>
     body {
